@@ -1,6 +1,6 @@
 import React, { useState, useRef, ChangeEvent } from "react";
 import { createRoot } from "react-dom/client";
-import html2canvas from "html2canvas";
+import { toPng } from 'html-to-image';
 import { jsPDF } from "jspdf";
 import './index.css';
 
@@ -118,40 +118,29 @@ const App = () => {
 
       // Helper to capture element
       const capture = async (element: HTMLElement) => {
-        return await html2canvas(element, {
-          scale: 4, // High resolution for crisp text
-          useCORS: true,
-          allowTaint: true,
+        // html-to-image uses native browser rendering (SVG foreignObject)
+        // This supports all modern CSS features including oklch
+        return await toPng(element, {
+          quality: 1.0,
+          pixelRatio: 4, // High resolution
           backgroundColor: "#ffffff",
-          logging: false,
-          windowWidth: element.scrollWidth,
-          windowHeight: element.scrollHeight,
-          onclone: (clonedDoc, clonedElement) => {
-            // Ensure fonts are applied to cloned document
-            const fontLink = clonedDoc.createElement('link');
-            fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Roboto:wght@300;400;500;700&display=swap';
-            fontLink.rel = 'stylesheet';
-            clonedDoc.head.appendChild(fontLink);
-
-            // Apply font-family explicitly to ensure it's used
-            if (clonedElement) {
-              clonedElement.style.fontFamily = "'Roboto', 'Noto Sans SC', sans-serif";
-            }
+          width: element.scrollWidth,
+          height: element.scrollHeight,
+          style: {
+            fontFamily: "'Roboto', 'Noto Sans SC', sans-serif"
           }
         });
       };
 
       // Capture Front
-      const frontCanvas = await capture(frontCardRef.current);
-      const frontData = frontCanvas.toDataURL("image/png", 1.0);
+      const frontData = await capture(frontCardRef.current);
       pdf.addImage(frontData, "PNG", 0, 0, 90, 54);
 
       // Add Back Page
       pdf.addPage([90, 54], "landscape");
 
       // Capture Back
-      const backCanvas = await capture(backCardRef.current);
-      const backData = backCanvas.toDataURL("image/png", 1.0);
+      const backData = await capture(backCardRef.current);
       pdf.addImage(backData, "PNG", 0, 0, 90, 54);
 
       // Save
