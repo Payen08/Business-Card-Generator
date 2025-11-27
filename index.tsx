@@ -120,7 +120,9 @@ const App = () => {
           scale: 4, // High resolution
           useCORS: true,
           backgroundColor: "#ffffff",
-          logging: false
+          logging: false,
+          foreignObjectRendering: false, // Avoid modern CSS features
+          removeContainer: true
         });
       };
 
