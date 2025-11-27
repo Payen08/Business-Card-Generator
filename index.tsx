@@ -117,21 +117,33 @@ const App = () => {
         return await html2canvas(element, {
           scale: 4, // High resolution
           useCORS: true,
-          allowTaint: true, // Allow cross-origin images
+          allowTaint: true,
           backgroundColor: "#ffffff",
           logging: false,
           foreignObjectRendering: false,
           removeContainer: true,
-          ignoreElements: (element) => {
-            // Skip elements that might have problematic styles
-            return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
-          },
           onclone: (clonedDoc) => {
-            // Remove any Tailwind-generated styles that might contain oklch
+            // Replace oklch colors with standard colors in all style elements
             const styles = clonedDoc.querySelectorAll('style');
             styles.forEach(style => {
               if (style.textContent && style.textContent.includes('oklch')) {
-                style.remove();
+                // Replace common oklch patterns with safe fallbacks
+                style.textContent = style.textContent
+                  .replace(/oklch\([^)]+\)/g, 'rgb(0, 0, 0)') // Replace all oklch with black as fallback
+                  .replace(/color:\s*oklch\([^)]+\);/g, '') // Remove color declarations with oklch
+                  .replace(/background-color:\s*oklch\([^)]+\);/g, ''); // Remove bg-color with oklch
+              }
+            });
+
+            // Also apply inline styles to ensure proper rendering
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach((el: any) => {
+              const computedStyle = window.getComputedStyle(el);
+              if (computedStyle.color && computedStyle.color.includes('oklch')) {
+                el.style.color = 'rgb(0, 0, 0)';
+              }
+              if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
+                el.style.backgroundColor = 'transparent';
               }
             });
           }
