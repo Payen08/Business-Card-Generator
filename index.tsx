@@ -105,6 +105,9 @@ const App = () => {
     setIsGeneratingPDF(true);
 
     try {
+      // Wait for fonts to load
+      await document.fonts.ready;
+
       // Create PDF with standard business card size (90mm x 54mm)
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -112,40 +115,27 @@ const App = () => {
         format: [90, 54]
       });
 
-      // Helper to capture element with workaround for oklch colors
+      // Helper to capture element
       const capture = async (element: HTMLElement) => {
         return await html2canvas(element, {
-          scale: 4, // High resolution
+          scale: 4, // High resolution for crisp text
           useCORS: true,
           allowTaint: true,
           backgroundColor: "#ffffff",
           logging: false,
-          foreignObjectRendering: false,
-          removeContainer: true,
-          onclone: (clonedDoc) => {
-            // Replace oklch colors with standard colors in all style elements
-            const styles = clonedDoc.querySelectorAll('style');
-            styles.forEach(style => {
-              if (style.textContent && style.textContent.includes('oklch')) {
-                // Replace common oklch patterns with safe fallbacks
-                style.textContent = style.textContent
-                  .replace(/oklch\([^)]+\)/g, 'rgb(0, 0, 0)') // Replace all oklch with black as fallback
-                  .replace(/color:\s*oklch\([^)]+\);/g, '') // Remove color declarations with oklch
-                  .replace(/background-color:\s*oklch\([^)]+\);/g, ''); // Remove bg-color with oklch
-              }
-            });
+          windowWidth: element.scrollWidth,
+          windowHeight: element.scrollHeight,
+          onclone: (clonedDoc, clonedElement) => {
+            // Ensure fonts are applied to cloned document
+            const fontLink = clonedDoc.createElement('link');
+            fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Roboto:wght@300;400;500;700&display=swap';
+            fontLink.rel = 'stylesheet';
+            clonedDoc.head.appendChild(fontLink);
 
-            // Also apply inline styles to ensure proper rendering
-            const allElements = clonedDoc.querySelectorAll('*');
-            allElements.forEach((el: any) => {
-              const computedStyle = window.getComputedStyle(el);
-              if (computedStyle.color && computedStyle.color.includes('oklch')) {
-                el.style.color = 'rgb(0, 0, 0)';
-              }
-              if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
-                el.style.backgroundColor = 'transparent';
-              }
-            });
+            // Apply font-family explicitly to ensure it's used
+            if (clonedElement) {
+              clonedElement.style.fontFamily = "'Roboto', 'Noto Sans SC', sans-serif";
+            }
           }
         });
       };
@@ -168,7 +158,7 @@ const App = () => {
 
     } catch (error) {
       console.error("PDF Generation failed:", error);
-      alert("PDF Generation failed. Please check console for details.");
+      alert("PDF 生成失败，请查看控制台了解详情 / PDF Generation failed. Please check console for details.");
     } finally {
       setIsGeneratingPDF(false);
     }
