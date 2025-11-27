@@ -106,23 +106,35 @@ const App = () => {
 
     try {
       // Create PDF with standard business card size (90mm x 54mm)
-      // We use a slightly larger format for the PDF to ensure no cutting issues, or stick to standard.
-      // Standard: 90x54mm.
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
         format: [90, 54]
       });
 
-      // Helper to capture element
+      // Helper to capture element with workaround for oklch colors
       const capture = async (element: HTMLElement) => {
         return await html2canvas(element, {
           scale: 4, // High resolution
           useCORS: true,
+          allowTaint: true, // Allow cross-origin images
           backgroundColor: "#ffffff",
           logging: false,
-          foreignObjectRendering: false, // Avoid modern CSS features
-          removeContainer: true
+          foreignObjectRendering: false,
+          removeContainer: true,
+          ignoreElements: (element) => {
+            // Skip elements that might have problematic styles
+            return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
+          },
+          onclone: (clonedDoc) => {
+            // Remove any Tailwind-generated styles that might contain oklch
+            const styles = clonedDoc.querySelectorAll('style');
+            styles.forEach(style => {
+              if (style.textContent && style.textContent.includes('oklch')) {
+                style.remove();
+              }
+            });
+          }
         });
       };
 
