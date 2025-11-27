@@ -136,6 +136,15 @@ const App = () => {
             if (clonedElement) {
               clonedElement.style.fontFamily = "'Roboto', 'Noto Sans SC', sans-serif";
             }
+
+            // Remove Tailwind CDN styles that contain oklch
+            const styles = clonedDoc.querySelectorAll('style');
+            styles.forEach(style => {
+              if (style.textContent && style.textContent.includes('oklch')) {
+                // Replace oklch with transparent or remove the rule
+                style.textContent = style.textContent.replace(/oklch\([^)]+\)/g, 'transparent');
+              }
+            });
           }
         });
       };
