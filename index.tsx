@@ -118,7 +118,7 @@ const App = () => {
       // Helper to capture element
       const capture = async (element: HTMLElement) => {
         return await html2canvas(element, {
-          scale: 4, // High resolution for crisp text
+          scale: 4,
           useCORS: true,
           allowTaint: true,
           backgroundColor: "#ffffff",
@@ -126,22 +126,34 @@ const App = () => {
           windowWidth: element.scrollWidth,
           windowHeight: element.scrollHeight,
           onclone: (clonedDoc, clonedElement) => {
-            // Ensure fonts are applied to cloned document
+            // 1. Ensure fonts are available
             const fontLink = clonedDoc.createElement('link');
             fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Roboto:wght@300;400;500;700&display=swap';
             fontLink.rel = 'stylesheet';
             clonedDoc.head.appendChild(fontLink);
 
-            // Apply font-family explicitly to ensure it's used
             if (clonedElement) {
               clonedElement.style.fontFamily = "'Roboto', 'Noto Sans SC', sans-serif";
             }
 
-            // Remove Tailwind CDN styles that contain oklch
+            // 2. Lock in computed colors as inline RGB styles
+            // This ensures we keep the correct colors even after we sanitize the CSS
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach((el: any) => {
+              const style = window.getComputedStyle(el);
+              // Explicitly set the RGB values for color properties
+              if (style.color) el.style.color = style.color;
+              if (style.backgroundColor) el.style.backgroundColor = style.backgroundColor;
+              if (style.borderColor) el.style.borderColor = style.borderColor;
+            });
+
+            // 3. Sanitize stylesheets to remove oklch (which crashes html2canvas)
+            // Since we inlined the correct colors above, we can safely replace oklch with a dummy value
             const styles = clonedDoc.querySelectorAll('style');
             styles.forEach(style => {
               if (style.textContent && style.textContent.includes('oklch')) {
-                // Replace oklch with transparent or remove the rule
+                // Replace oklch(...) with transparent to satisfy the parser
+                // The inline styles we added will take precedence for the actual elements
                 style.textContent = style.textContent.replace(/oklch\([^)]+\)/g, 'transparent');
               }
             });
