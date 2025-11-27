@@ -104,11 +104,55 @@ const App = () => {
 
     setIsGeneratingPDF(true);
 
+    // Store original styles to restore later
+    const originalStyleElements: HTMLStyleElement[] = [];
+    const tempStyleElements: HTMLStyleElement[] = [];
+
     try {
       // Wait for fonts to load
       await document.fonts.ready;
 
-      // Create PDF with standard business card size (90mm x 54mm)
+      // 1. Pre-process stylesheets to remove oklch BEFORE calling html2canvas
+      // This is crucial because html2canvas parses stylesheets immediately
+      const styleSheets = Array.from(document.styleSheets);
+
+      for (const sheet of styleSheets) {
+        try {
+          // Check if it's a style tag (CSSStyleSheet) and accessible
+          if (sheet.ownerNode && sheet.ownerNode instanceof HTMLStyleElement) {
+            const styleElement = sheet.ownerNode;
+            let cssText = '';
+
+            try {
+              // Try to get rules
+              const rules = Array.from(sheet.cssRules || []);
+              cssText = rules.map(rule => rule.cssText).join('\n');
+            } catch (e) {
+              // Fallback to innerHTML if accessing rules fails (CORS or other reasons)
+              cssText = styleElement.innerHTML;
+            }
+
+            if (cssText && cssText.includes('oklch')) {
+              // Found a problematic stylesheet
+              originalStyleElements.push(styleElement);
+
+              // Create a sanitized version
+              const sanitizedCss = cssText.replace(/oklch\([^)]+\)/g, 'rgb(0, 0, 0)');
+              const tempStyle = document.createElement('style');
+              tempStyle.textContent = sanitizedCss;
+              document.head.appendChild(tempStyle);
+              tempStyleElements.push(tempStyle);
+
+              // Disable original
+              sheet.disabled = true;
+            }
+          }
+        } catch (e) {
+          console.warn("Could not process stylesheet:", e);
+        }
+      }
+
+      // Create PDF
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -126,7 +170,7 @@ const App = () => {
           windowWidth: element.scrollWidth,
           windowHeight: element.scrollHeight,
           onclone: (clonedDoc, clonedElement) => {
-            // 1. Ensure fonts are available
+            // Ensure fonts
             const fontLink = clonedDoc.createElement('link');
             fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Roboto:wght@300;400;500;700&display=swap';
             fontLink.rel = 'stylesheet';
@@ -136,26 +180,14 @@ const App = () => {
               clonedElement.style.fontFamily = "'Roboto', 'Noto Sans SC', sans-serif";
             }
 
-            // 2. Lock in computed colors as inline RGB styles
-            // This ensures we keep the correct colors even after we sanitize the CSS
+            // Inline computed colors to ensure we get the REAL colors (which browser computed to RGB)
+            // instead of our fallback rgb(0,0,0) from the sanitized stylesheet
             const allElements = clonedDoc.querySelectorAll('*');
             allElements.forEach((el: any) => {
               const style = window.getComputedStyle(el);
-              // Explicitly set the RGB values for color properties
               if (style.color) el.style.color = style.color;
               if (style.backgroundColor) el.style.backgroundColor = style.backgroundColor;
               if (style.borderColor) el.style.borderColor = style.borderColor;
-            });
-
-            // 3. Sanitize stylesheets to remove oklch (which crashes html2canvas)
-            // Since we inlined the correct colors above, we can safely replace oklch with a dummy value
-            const styles = clonedDoc.querySelectorAll('style');
-            styles.forEach(style => {
-              if (style.textContent && style.textContent.includes('oklch')) {
-                // Replace oklch(...) with transparent to satisfy the parser
-                // The inline styles we added will take precedence for the actual elements
-                style.textContent = style.textContent.replace(/oklch\([^)]+\)/g, 'transparent');
-              }
             });
           }
         });
@@ -181,6 +213,16 @@ const App = () => {
       console.error("PDF Generation failed:", error);
       alert("PDF 生成失败，请查看控制台了解详情 / PDF Generation failed. Please check console for details.");
     } finally {
+      // Restore original styles
+      tempStyleElements.forEach(el => el.remove());
+      originalStyleElements.forEach(el => {
+        // We need to re-enable the sheet. 
+        // Accessing the sheet property again to be safe
+        if (el.sheet) {
+          el.sheet.disabled = false;
+        }
+      });
+
       setIsGeneratingPDF(false);
     }
   };
