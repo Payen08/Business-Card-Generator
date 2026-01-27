@@ -40,11 +40,13 @@ const ContactRow = ({
   labelCN, labelEN, value,
   labelWidthClass = "w-[16mm]",
   subValue = null,
-  fontSize = 5
+  fontSize = 5,
+  valueFontSize
 }: {
   labelCN: string, labelEN: string, value: string,
   labelWidthClass?: string, subValue?: string | null,
-  fontSize?: number
+  fontSize?: number,
+  valueFontSize?: number
 }) => (
   <div className="flex items-baseline">
     {/* Label Container - Fixed Width for perfect alignment */}
@@ -65,7 +67,7 @@ const ContactRow = ({
     {/* Value Block */}
     <div className="flex flex-col justify-center">
       {/* Value */}
-      <span className="text-[#000] leading-none font-normal tracking-wide" style={{ fontSize: `${fontSize}pt` }}>{value}</span>
+      <span className="text-[#000] leading-none font-normal tracking-wide" style={{ fontSize: `${valueFontSize ?? fontSize}pt` }}>{value}</span>
       {/* SubValue */}
       {subValue && <span className="text-gray-500 leading-tight mt-[0.3mm] tracking-normal" style={{ fontSize: `${Math.max(fontSize - 1, 3)}pt` }}>{subValue}</span>}
     </div>
@@ -424,7 +426,8 @@ const App = () => {
                 labelWidthClass="w-[12mm]" // Standard Width
                 value={STATIC_INFO.addressCN}
                 subValue={STATIC_INFO.addressEN}
-                fontSize={fontSizes.contactBase + 0.25}
+                fontSize={fontSizes.contactBase}
+                valueFontSize={fontSizes.contactBase + 0.25}
               />
             </div>
 
